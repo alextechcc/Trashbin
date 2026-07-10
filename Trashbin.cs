@@ -21,6 +21,7 @@ namespace Trashbin
     {
         public static Trashbin Instance { get; private set; }
         private SRLogger logger;
+        private static UnityAction? _deleteAction;
 
         public override void OnInitializeMelon()
         {
@@ -129,10 +130,19 @@ namespace Trashbin
                 logger.Msg("Finding continue button");
                 var continueBtnT = TwoButtonsPromptWrap.transform.Find("continue button");
 
-                logger.Msg("Changing button to delete song");
+                logger.Msg("Adding delete handler to continue button");
                 var SynthButton = UnityUtil.ValidatedGetComponent<SynthUIButton>(Instance.logger, continueBtnT?.gameObject)!;
-                SynthButton.WhenClicked = new();
-                SynthButton.WhenClicked.AddListener((UnityAction)Delete.DeleteSong);
+                // This prompt dialog is shared by every confirmation in the menu
+                // (OnPromptAccept switches on currentPrompt), so keep the game's own
+                // handler intact. DeleteSong guards on our unique prompt id 99, and
+                // OnPromptAccept has no case for 99, so both can coexist.
+                SynthButton.WhenClicked ??= new();
+                if (_deleteAction != null)
+                {
+                    SynthButton.WhenClicked.RemoveListener(_deleteAction);
+                }
+                _deleteAction = (UnityAction)Delete.DeleteSong;
+                SynthButton.WhenClicked.AddListener(_deleteAction);
             }
             catch (System.NullReferenceException ex)
             {
